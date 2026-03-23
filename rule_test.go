@@ -44,6 +44,16 @@ func TestToolNamesUnmarshalJSON(t *testing.T) {
 			input:   `[]`,
 			wantErr: true,
 		},
+		{
+			name:    "empty string",
+			input:   `""`,
+			wantErr: true,
+		},
+		{
+			name:    "null",
+			input:   `null`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

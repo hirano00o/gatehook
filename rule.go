@@ -25,6 +25,9 @@ type ToolNames []string
 func (t *ToolNames) UnmarshalJSON(data []byte) error {
 	var single string
 	if err := json.Unmarshal(data, &single); err == nil {
+		if single == "" {
+			return fmt.Errorf("tool must not be empty")
+		}
 		*t = ToolNames{single}
 		return nil
 	}
