@@ -17,7 +17,7 @@
         {
           default = pkgs.buildGoModule {
             pname = "gatehook";
-            version = "0.1.0";
+            version = "v0.2.0";
             src = ./.;
             vendorHash = null;
           };
