@@ -91,12 +91,12 @@ gatehook --config /path/to/rules.json
 }
 ```
 
-| フィールド | 型     | 説明                                                     |
-|------------|--------|----------------------------------------------------------|
-| `tool`     | string | マッチ対象のツール名: `Bash`、`Read`、`Edit`、`Write`。  |
-| `pattern`  | string | マッチ対象の値に適用する Go 正規表現。                    |
-| `decision` | string | `"deny"` で操作をブロック、`"ask"` でユーザーに確認。    |
-| `reason`   | string | Claude Code に返す理由メッセージ。                        |
+| フィールド | 型                  | 説明                                                     |
+|------------|---------------------|----------------------------------------------------------|
+| `tool`     | string \| []string  | マッチ対象のツール名: `Bash`、`Read`、`Edit`、`Write`。単一文字列または配列で指定可能。 |
+| `pattern`  | string              | マッチ対象の値に適用する Go 正規表現。                    |
+| `decision` | string              | `"deny"` で操作をブロック、`"ask"` でユーザーに確認。    |
+| `reason`   | string              | Claude Code に返す理由メッセージ。                        |
 
 ## 設定例
 
@@ -108,9 +108,8 @@ gatehook --config /path/to/rules.json
     { "tool": "Bash",  "pattern": "(^|[|;&])\\s*/",        "decision": "deny", "reason": "Absolute path command execution is not allowed" },
     { "tool": "Bash",  "pattern": "\\bgit\\s+push\\b",     "decision": "deny", "reason": "git push is not allowed" },
     { "tool": "Bash",  "pattern": "\\bgit\\s+config\\b",   "decision": "ask",  "reason": "Attempting to run git config" },
-    { "tool": "Read",  "pattern": "\\.env",                "decision": "deny", "reason": "Reading .env files is not allowed" },
-    { "tool": "Edit",  "pattern": "^/etc/",                "decision": "deny", "reason": "Editing system files is not allowed" },
-    { "tool": "Write", "pattern": "\\.env",                "decision": "deny", "reason": "Writing to .env files is not allowed" }
+    { "tool": ["Read", "Edit", "Write"], "pattern": "\\.env", "decision": "deny", "reason": ".env files are not allowed" },
+    { "tool": "Edit",  "pattern": "^/etc/",                "decision": "deny", "reason": "Editing system files is not allowed" }
   ]
 }
 ```

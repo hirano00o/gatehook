@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"regexp"
 )
@@ -17,12 +19,39 @@ type ToolInput struct {
 	FilePath string `json:"file_path,omitempty"` // Read, Edit, Write
 }
 
+// ToolNames accepts a single string or an array of strings in JSON.
+type ToolNames []string
+
+func (t *ToolNames) UnmarshalJSON(data []byte) error {
+	var single string
+	if err := json.Unmarshal(data, &single); err == nil {
+		*t = ToolNames{single}
+		return nil
+	}
+	var multi []string
+	if err := json.Unmarshal(data, &multi); err != nil {
+		return fmt.Errorf("tool must be a string or array of strings")
+	}
+	*t = ToolNames(multi)
+	return nil
+}
+
+// Contains reports whether name is in t.
+func (t ToolNames) Contains(name string) bool {
+	for _, n := range t {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
 // Rule defines a matching rule.
 type Rule struct {
-	Tool     string `json:"tool"`     // "Bash", "Read", "Edit", "Write"
-	Pattern  string `json:"pattern"`  // regexp
-	Decision string `json:"decision"` // "deny" | "ask"
-	Reason   string `json:"reason"`   // custom message
+	Tool     ToolNames `json:"tool"`     // "Bash" or ["Read", "Edit", "Write"]
+	Pattern  string    `json:"pattern"`  // regexp
+	Decision string    `json:"decision"` // "deny" | "ask"
+	Reason   string    `json:"reason"`   // custom message
 }
 
 // Config represents the structure of a rules file.
@@ -57,7 +86,7 @@ func (c *Config) Evaluate(input *HookInput) *Result {
 	}
 
 	for _, rule := range c.Rules {
-		if rule.Tool != input.ToolName {
+		if !rule.Tool.Contains(input.ToolName) {
 			continue
 		}
 		matched, err := regexp.MatchString(rule.Pattern, target)
