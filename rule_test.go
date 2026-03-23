@@ -39,6 +39,11 @@ func TestToolNamesUnmarshalJSON(t *testing.T) {
 			input:   `123`,
 			wantErr: true,
 		},
+		{
+			name:    "empty array",
+			input:   `[]`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

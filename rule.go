@@ -32,6 +32,9 @@ func (t *ToolNames) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &multi); err != nil {
 		return fmt.Errorf("tool must be a string or array of strings")
 	}
+	if len(multi) == 0 {
+		return fmt.Errorf("tool must not be empty")
+	}
 	*t = ToolNames(multi)
 	return nil
 }
