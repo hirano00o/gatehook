@@ -1,18 +1,96 @@
 package main
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 var testConfig = &Config{
 	Rules: []Rule{
-		{Tool: "Bash", Pattern: `\bsed\b`, Decision: "deny", Reason: "Use the Edit tool instead of sed"},
-		{Tool: "Bash", Pattern: `\bawk\b`, Decision: "deny", Reason: "Use the Edit tool instead of awk"},
-		{Tool: "Bash", Pattern: `(^|[|;&])\s*/`, Decision: "deny", Reason: "Absolute path command execution is not allowed"},
-		{Tool: "Bash", Pattern: `\bgit\s+push\b`, Decision: "deny", Reason: "git push is not allowed"},
-		{Tool: "Bash", Pattern: `\bgit\s+config\b`, Decision: "ask", Reason: "Attempting to run git config"},
-		{Tool: "Read", Pattern: `\.env`, Decision: "deny", Reason: "Reading .env files is not allowed"},
-		{Tool: "Edit", Pattern: `^/etc/`, Decision: "deny", Reason: "Editing system files is not allowed"},
-		{Tool: "Write", Pattern: `\.env`, Decision: "deny", Reason: "Writing to .env files is not allowed"},
+		{Tool: ToolNames{"Bash"}, Pattern: `\bsed\b`, Decision: "deny", Reason: "Use the Edit tool instead of sed"},
+		{Tool: ToolNames{"Bash"}, Pattern: `\bawk\b`, Decision: "deny", Reason: "Use the Edit tool instead of awk"},
+		{Tool: ToolNames{"Bash"}, Pattern: `(^|[|;&])\s*/`, Decision: "deny", Reason: "Absolute path command execution is not allowed"},
+		{Tool: ToolNames{"Bash"}, Pattern: `\bgit\s+push\b`, Decision: "deny", Reason: "git push is not allowed"},
+		{Tool: ToolNames{"Bash"}, Pattern: `\bgit\s+config\b`, Decision: "ask", Reason: "Attempting to run git config"},
+		{Tool: ToolNames{"Read", "Edit", "Write"}, Pattern: `\.env`, Decision: "deny", Reason: ".env files are not allowed"},
+		{Tool: ToolNames{"Edit"}, Pattern: `^/etc/`, Decision: "deny", Reason: "Editing system files is not allowed"},
 	},
+}
+
+func TestToolNamesUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    ToolNames
+		wantErr bool
+	}{
+		{
+			name:  "single string",
+			input: `"Bash"`,
+			want:  ToolNames{"Bash"},
+		},
+		{
+			name:  "array of strings",
+			input: `["Read", "Edit", "Write"]`,
+			want:  ToolNames{"Read", "Edit", "Write"},
+		},
+		{
+			name:    "invalid input",
+			input:   `123`,
+			wantErr: true,
+		},
+		{
+			name:    "empty array",
+			input:   `[]`,
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			input:   `""`,
+			wantErr: true,
+		},
+		{
+			name:    "null",
+			input:   `null`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got ToolNames
+			err := json.Unmarshal([]byte(tt.input), &got)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("expected %v, got %v", tt.want, got)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("index %d: expected %q, got %q", i, tt.want[i], got[i])
+				}
+			}
+		})
+	}
+}
+
+func TestToolNamesContains(t *testing.T) {
+	names := ToolNames{"Read", "Edit", "Write"}
+	for _, tool := range []string{"Read", "Edit", "Write"} {
+		if !names.Contains(tool) {
+			t.Errorf("expected Contains(%q) to be true", tool)
+		}
+	}
+	if names.Contains("Bash") {
+		t.Error("expected Contains(\"Bash\") to be false")
+	}
 }
 
 func TestEvaluate(t *testing.T) {
@@ -70,7 +148,7 @@ func TestEvaluate(t *testing.T) {
 			input:   &HookInput{ToolName: "Bash", ToolInput: ToolInput{Command: ""}},
 			wantNil: true,
 		},
-		// Read: deny (.env)
+		// Read: deny (.env) — matched by array rule ["Read","Edit","Write"]
 		{
 			name:         "Read .env.local",
 			input:        &HookInput{ToolName: "Read", ToolInput: ToolInput{FilePath: ".env.local"}},
@@ -94,6 +172,12 @@ func TestEvaluate(t *testing.T) {
 			input:   &HookInput{ToolName: "Read", ToolInput: ToolInput{FilePath: ""}},
 			wantNil: true,
 		},
+		// Edit: deny (.env) — matched by array rule ["Read","Edit","Write"]
+		{
+			name:         "Edit .env",
+			input:        &HookInput{ToolName: "Edit", ToolInput: ToolInput{FilePath: ".env"}},
+			wantDecision: "deny",
+		},
 		// Edit: deny (/etc/)
 		{
 			name:         "Edit /etc/hosts",
@@ -106,7 +190,7 @@ func TestEvaluate(t *testing.T) {
 			input:   &HookInput{ToolName: "Edit", ToolInput: ToolInput{FilePath: "/home/user/project/main.go"}},
 			wantNil: true,
 		},
-		// Write: deny (.env)
+		// Write: deny (.env) — matched by array rule ["Read","Edit","Write"]
 		{
 			name:         "Write .env",
 			input:        &HookInput{ToolName: "Write", ToolInput: ToolInput{FilePath: ".env"}},
@@ -116,6 +200,12 @@ func TestEvaluate(t *testing.T) {
 		{
 			name:    "Write main.go unmatched",
 			input:   &HookInput{ToolName: "Write", ToolInput: ToolInput{FilePath: "main.go"}},
+			wantNil: true,
+		},
+		// Bash: not matched by array rule ["Read","Edit","Write"] → nil
+		{
+			name:    "Bash .env not matched by file rule",
+			input:   &HookInput{ToolName: "Bash", ToolInput: ToolInput{Command: ".env"}},
 			wantNil: true,
 		},
 		// Unknown tool → nil (extractTarget returns "")
@@ -156,8 +246,8 @@ func TestEvaluateInvalidPattern(t *testing.T) {
 	cfg := &Config{
 		Rules: []Rule{
 			// Invalid patterns are skipped and subsequent valid rules are evaluated
-			{Tool: "Bash", Pattern: `[invalid`, Decision: "deny", Reason: "invalid pattern"},
-			{Tool: "Bash", Pattern: `\bls\b`, Decision: "deny", Reason: "ls matched"},
+			{Tool: ToolNames{"Bash"}, Pattern: `[invalid`, Decision: "deny", Reason: "invalid pattern"},
+			{Tool: ToolNames{"Bash"}, Pattern: `\bls\b`, Decision: "deny", Reason: "ls matched"},
 		},
 	}
 	input := &HookInput{ToolName: "Bash", ToolInput: ToolInput{Command: "ls -la"}}

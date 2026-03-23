@@ -91,12 +91,12 @@ The rules file is a JSON object with a single `rules` array.
 }
 ```
 
-| Field      | Type   | Description                                              |
-|------------|--------|----------------------------------------------------------|
-| `tool`     | string | Tool name to match: `Bash`, `Read`, `Edit`, or `Write`. |
-| `pattern`  | string | Go regular expression matched against the target value.  |
-| `decision` | string | `"deny"` to block the action, `"ask"` to prompt the user. |
-| `reason`   | string | Message returned to Claude Code explaining the decision. |
+| Field      | Type                | Description                                              |
+|------------|---------------------|----------------------------------------------------------|
+| `tool`     | string \| []string  | Tool name(s) to match: `Bash`, `Read`, `Edit`, or `Write`. Accepts a single string or an array. |
+| `pattern`  | string              | Go regular expression matched against the target value.  |
+| `decision` | string              | `"deny"` to block the action, `"ask"` to prompt the user. |
+| `reason`   | string              | Message returned to Claude Code explaining the decision. |
 
 ## Example
 
@@ -108,9 +108,8 @@ The rules file is a JSON object with a single `rules` array.
     { "tool": "Bash",  "pattern": "(^|[|;&])\\s*/",        "decision": "deny", "reason": "Absolute path command execution is not allowed" },
     { "tool": "Bash",  "pattern": "\\bgit\\s+push\\b",     "decision": "deny", "reason": "git push is not allowed" },
     { "tool": "Bash",  "pattern": "\\bgit\\s+config\\b",   "decision": "ask",  "reason": "Attempting to run git config" },
-    { "tool": "Read",  "pattern": "\\.env",                "decision": "deny", "reason": "Reading .env files is not allowed" },
-    { "tool": "Edit",  "pattern": "^/etc/",                "decision": "deny", "reason": "Editing system files is not allowed" },
-    { "tool": "Write", "pattern": "\\.env",                "decision": "deny", "reason": "Writing to .env files is not allowed" }
+    { "tool": ["Read", "Edit", "Write"], "pattern": "\\.env", "decision": "deny", "reason": ".env files are not allowed" },
+    { "tool": "Edit",  "pattern": "^/etc/",                "decision": "deny", "reason": "Editing system files is not allowed" }
   ]
 }
 ```
